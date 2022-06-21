@@ -1,13 +1,13 @@
 extern crate core;
 
 use home::home_dir;
+use log::info;
 use scraper::{Html, Node, Selector};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use log::info;
 
 #[derive(Debug)]
 struct IndexInfo {
@@ -42,7 +42,7 @@ fn main() {
     start_download(info);
 }
 
-fn start_download(info:IndexInfo){
+fn start_download(info: IndexInfo) {
     get_page_content_by_list(info.post_list);
     match info.next_url {
         None => {
@@ -51,13 +51,11 @@ fn start_download(info:IndexInfo){
         }
         Some(url) => {
             let info = get_index_info(&url).expect("get index info error");
-            info!("start download {:?}",&info.next_url);
+            info!("start download {:?}", &info.next_url);
             start_download(info)
         }
     }
 }
-
-
 
 fn get_index_info(url: &str) -> Result<IndexInfo, reqwest::Error> {
     let response = reqwest::blocking::get(url).expect("get page info error");
@@ -104,8 +102,11 @@ fn get_page_content_by_list(post_list: Vec<PostInfo>) {
 }
 
 fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
-    info!("start downlaod post:{:?}",info);
-    let client = reqwest::blocking::Client::builder().timeout(Duration::from_secs(30)).build().unwrap();
+    info!("start downlaod post:{:?}", info);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .unwrap();
     let request = client.get(&info.url).build().unwrap();
     let response = client.execute(request).unwrap();
     let doc = response.text().expect("get context error");
@@ -113,7 +114,7 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
     let article_selector = Selector::parse("article").unwrap();
     let article_el = html.select(&article_selector).next().unwrap();
     let nodes = article_el.tree().nodes();
-    let post_dir = get_post_dir(&info.date,&info.title);
+    let post_dir = get_post_dir(&info.date, &info.title);
     let mut title_flag = false;
     let mut meipintu_index = 0;
     let mut title_str = "".to_string();
@@ -133,8 +134,7 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
                 } else {
                     let mut txt = text.text.to_string();
                     txt = txt.trim().to_string();
-                    if !txt.eq("\n") && !txt.eq("\n\u{3000}") && !txt.is_empty() {
-                    }
+                    if !txt.eq("\n") && !txt.eq("\n\u{3000}") && !txt.is_empty() {}
                     if !meipin_flag && txt.starts_with("没品") {
                         meipin_flag = true;
                     }
@@ -153,10 +153,10 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
                         meipintu_index += 1;
                     }
                     println!("title : {:?} src:{:?}", title_str, src);
-                    let info_vec:Vec<&str> = src.split('.').collect();
+                    let info_vec: Vec<&str> = src.split('.').collect();
                     let suffix = info_vec.last().expect("get suffix error");
                     if !suffix.is_empty() {
-                        title_str = title_str +"."+ suffix;
+                        title_str = title_str + "." + suffix;
                     }
                     download_img(src, &title_str, &post_dir);
                     meipin_add_flag = false;
@@ -183,20 +183,22 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
                     meipin_add_flag = false;
                 }
             },
-            Node::ProcessingInstruction(_ins) => {
-            }
+            Node::ProcessingInstruction(_ins) => {}
         }
     }
     if !meipin_text.is_empty() {
         save_to_file(meipin_text, &post_dir);
     }
-    info!("end download post:{:?}",info);
+    info!("end download post:{:?}", info);
     Ok(())
 }
 
-fn get_post_dir(data: &str,title:&str) -> PathBuf {
+fn get_post_dir(data: &str, title: &str) -> PathBuf {
     let home_dir = home_dir().expect("get home path error");
-    let buf = home_dir.join("Documents").join("4chan").join(data.to_string() + "-"+title);
+    let buf = home_dir
+        .join("Documents")
+        .join("4chan")
+        .join(data.to_string() + "-" + title);
     if !buf.exists() {
         fs::create_dir_all(&buf).expect("create dir error");
     }
@@ -205,28 +207,34 @@ fn get_post_dir(data: &str,title:&str) -> PathBuf {
 fn download_img(url: &str, title: &String, dir_path: &Path) {
     let img_path = dir_path.join(title);
     if !img_path.exists() {
-        info!("start download image: {:?}",url);
-        let client = reqwest::blocking::Client::builder().timeout(Duration::from_secs(30)).build().unwrap();
+        info!("start download image: {:?}", url);
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .build()
+            .unwrap();
         let request = client.get(url).build().unwrap();
         let img_resp = client.execute(request).expect("get image error");
         let mut file = File::create(&img_path).expect("create img path filed");
         let stream = img_resp.bytes().expect("get img bytes error");
         let _ = file.write_all(stream.as_ref()).expect("save image error");
-        info!("end download image: {:?}",url);
+        info!("end download image: {:?}", url);
     }
 }
 
 fn save_to_file(meipin_text: String, dir_path: &Path) {
     let text_path = dir_path.join("没品选段.txt");
-    info!("start write text : {:?}",text_path);
+    info!("start write text : {:?}", text_path);
     let mut file = File::create(&text_path).expect("create img path filed");
     let _ = file.write_all(meipin_text.as_bytes());
-    info!("end write text : {:?}",text_path);
-
+    info!("end write text : {:?}", text_path);
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {
-    let log_path = home_dir().expect("get home path error").join("Documents").join("4chan").join("4chan.log");
+    let log_path = home_dir()
+        .expect("get home path error")
+        .join("Documents")
+        .join("4chan")
+        .join("4chan.log");
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
