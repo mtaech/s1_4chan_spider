@@ -102,7 +102,7 @@ fn get_page_content_by_list(post_list: Vec<PostInfo>) {
 }
 
 fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
-    info!("start downlaod post:{:?}", info);
+    info!("start download post:{:?}", info);
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
