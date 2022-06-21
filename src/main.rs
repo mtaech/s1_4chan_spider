@@ -99,11 +99,12 @@ fn get_post_info(html: &Html) -> Result<Vec<PostInfo>, reqwest::Error> {
 }
 fn get_page_content_by_list(post_list: Vec<PostInfo>) {
     for post in post_list {
-        get_post_content(post);
+        get_post_content(post).expect("get post content error");
     }
 }
 
 fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
+    info!("start downlaod post:{:?}",info);
     let client = reqwest::blocking::Client::builder().timeout(Duration::from_secs(30)).build().unwrap();
     let request = client.get(&info.url).build().unwrap();
     let response = client.execute(request).unwrap();
@@ -123,8 +124,8 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
         match node.value() {
             Node::Document => {}
             Node::Fragment => {}
-            Node::Doctype(docType) => {}
-            Node::Comment(comment) => {}
+            Node::Doctype(_doc_type) => {}
+            Node::Comment(_comment) => {}
             Node::Text(text) => {
                 if title_flag {
                     title_str = text.text.to_string();
@@ -152,8 +153,8 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
                         meipintu_index += 1;
                     }
                     println!("title : {:?} src:{:?}", title_str, src);
-                    let infoVec:Vec<&str> = src.split('.').collect();
-                    let suffix = infoVec.last().expect("get suffix error");
+                    let info_vec:Vec<&str> = src.split('.').collect();
+                    let suffix = info_vec.last().expect("get suffix error");
                     if !suffix.is_empty() {
                         title_str = title_str +"."+ suffix;
                     }
@@ -182,13 +183,14 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
                     meipin_add_flag = false;
                 }
             },
-            Node::ProcessingInstruction(ins) => {
+            Node::ProcessingInstruction(_ins) => {
             }
         }
     }
     if !meipin_text.is_empty() {
         save_to_file(meipin_text, &post_dir);
     }
+    info!("end download post:{:?}",info);
     Ok(())
 }
 
