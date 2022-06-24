@@ -230,11 +230,14 @@ fn save_to_file(meipin_text: String, dir_path: &Path) {
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {
-    let log_path = home_dir()
+    let log_dir = home_dir()
         .expect("get home path error")
         .join("Documents")
-        .join("4chan")
-        .join("4chan.log");
+        .join("4chan");
+    if !log_dir.exists() {
+        fs::create_dir_all(&log_dir).expect("log dir create error");
+    }
+    let log_path = log_dir.join("4chan.log");
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
