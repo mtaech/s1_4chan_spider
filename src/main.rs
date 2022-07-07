@@ -6,6 +6,7 @@ use scraper::{Html, Node, Selector};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -37,7 +38,7 @@ impl PostInfo {
 
 fn main() {
     setup_logger().expect("set logger error");
-    let url = "http://meipin.im";
+    let url = "http://meipin.im/page/29";
     let info = get_index_info(url).expect("get index info error");
     start_download(info);
 }
@@ -194,30 +195,45 @@ fn get_post_content(info: PostInfo) -> Result<(), reqwest::Error> {
 }
 
 fn get_post_dir(data: &str, title: &str) -> PathBuf {
+    let title = title.replace("*", "");
+    let title = title.replace("/", "");
     let home_dir = home_dir().expect("get home path error");
     let buf = home_dir
         .join("Documents")
         .join("4chan")
-        .join(data.to_string() + "-" + title);
+        .join(data.to_string() + "-" + &title);
     if !buf.exists() {
-        fs::create_dir_all(&buf).expect("create dir error");
+        fs::create_dir_all(&buf).expect("create dir error,dir path {:?}");
     }
     buf
 }
 fn download_img(url: &str, title: &String, dir_path: &Path) {
-    let img_path = dir_path.join(title);
-    if !img_path.exists() {
-        info!("start download image: {:?}", url);
-        let client = reqwest::blocking::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .unwrap();
-        let request = client.get(url).build().unwrap();
-        let img_resp = client.execute(request).expect("get image error");
-        let mut file = File::create(&img_path).expect("create img path filed");
-        let stream = img_resp.bytes().expect("get img bytes error");
-        let _ = file.write_all(stream.as_ref()).expect("save image error");
-        info!("end download image: {:?}", url);
+    if !title.eq(".jpg") {
+        let title = title.replace("/","");
+        let title = title.replace(">","");
+        let title = title.replace("\\","");
+        let full_url = match &url.starts_with("//") {
+            true => {
+                String::from("http:").add(url)
+            }
+            false => {
+                String::from(url)
+            }
+        };
+        let img_path = dir_path.join(title);
+        if !img_path.exists() {
+            info!("start download image: {:?}", &full_url);
+            let client = reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()
+                .unwrap();
+            let request = client.get(&full_url).build().unwrap();
+            let img_resp = client.execute(request).expect("get image error");
+            let mut file = File::create(&img_path).expect("create img path filed");
+            let stream = img_resp.bytes().expect("get img bytes error");
+            let _ = file.write_all(stream.as_ref()).expect("save image error");
+            info!("end download image: {:?}", &full_url);
+        }
     }
 }
 
